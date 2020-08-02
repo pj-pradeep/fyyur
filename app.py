@@ -377,11 +377,15 @@ def show_artist(artist_id):
     "past_shows_count": 0,
     "upcoming_shows_count": 3,
   }
+<<<<<<< HEAD
   #data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
   data = Artist.query.get(artist_id)
   if data is None:
     flash('An error occurred. Artist with ID:' + artist_id + ' not found.')
   
+=======
+  data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
+>>>>>>> ea3432508cf19ec20e37d404ecaec555aedfc69a
   return render_template('pages/show_artist.html', artist=data)
 
 #  Update
@@ -564,6 +568,7 @@ def create_shows():
 def create_show_submission():
   # called to create new shows in the db, upon submitting new show listing form
   # TODO: insert form data as a new Show record in the db, instead
+<<<<<<< HEAD
   form = ShowForm(request.form)
 
   # Query DB if the provided artist and venue exist
@@ -585,6 +590,11 @@ def create_show_submission():
     flash('An error occurred. Show could not be listed.')
   # on successful db insert, flash success
   
+=======
+
+  # on successful db insert, flash success
+  flash('Show was successfully listed!')
+>>>>>>> ea3432508cf19ec20e37d404ecaec555aedfc69a
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Show could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/

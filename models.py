@@ -18,8 +18,13 @@ class Genre(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String, nullable=False, unique=True)
 
+<<<<<<< HEAD
     '''def __repr__(self):
         return self.name'''
+=======
+    def __repr__(self):
+        return '<Genre {}>'.format(self.name)
+>>>>>>> ea3432508cf19ec20e37d404ecaec555aedfc69a
 
 class Venue(db.Model):
     __tablename__ = 'venue'
