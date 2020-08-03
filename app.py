@@ -104,7 +104,7 @@ def search_venues():
 def show_venue(venue_id):
   # shows the venue page with the given venue_id
   # TODO: replace with real venue data from the venues table, using venue_id
-  data1={
+  '''data1={
     "id": 1,
     "name": "The Musical Hop",
     "genres": ["Jazz", "Reggae", "Swing", "Classical", "Folk"],
@@ -180,8 +180,29 @@ def show_venue(venue_id):
     }],
     "past_shows_count": 1,
     "upcoming_shows_count": 1,
-  }
-  data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
+  }'''
+  venue = Venue.query.get(venue_id)
+  data = {}
+  if venue:
+    data = {
+      "id": venue.id,
+      "name": venue.name,
+      "genres": [genre.name for genre in venue.genres],
+      "address": venue.address,
+      "city": venue.city,
+      "state": venue.state,
+      "phone": venue.phone,
+      "website": venue.website,
+      "facebook_link": venue.facebook_link,
+      "seeking_talent": True if venue.seeking_talent else False,
+      "image_link": venue.image_link,
+      "past_shows": [],
+      "upcoming_shows": [],
+      "past_shows_count": 0,
+      "upcoming_shows_count": 0,
+    }
+    
+  # data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
   return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
@@ -377,15 +398,11 @@ def show_artist(artist_id):
     "past_shows_count": 0,
     "upcoming_shows_count": 3,
   }
-<<<<<<< HEAD
   #data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
   data = Artist.query.get(artist_id)
   if data is None:
     flash('An error occurred. Artist with ID:' + artist_id + ' not found.')
   
-=======
-  data = list(filter(lambda d: d['id'] == artist_id, [data1, data2, data3]))[0]
->>>>>>> ea3432508cf19ec20e37d404ecaec555aedfc69a
   return render_template('pages/show_artist.html', artist=data)
 
 #  Update
@@ -419,6 +436,23 @@ def edit_artist_submission(artist_id):
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
 def edit_venue(venue_id):
   form = VenueForm()
+  venue = Venue.query.get(venue_id)
+
+  if venue:
+    # populate form for loading the UI
+    form.name.data = venue.name
+    form.phone.data = venue.phone
+    form.state.data = venue.state
+    form.seeking_talent.data = venue.seeking_talent
+    form.seeking_description.data = venue.seeking_description
+    form.website.data = venue.website
+    form.address.data = venue.address
+    form.city.data = venue.city
+    form.facebook_link.data = venue.facebook_link
+    form.image_link.data = venue.image_link
+    form.genres.data = [genre.name for genre in venue.genres]
+
+  '''
   venue={
     "id": 1,
     "name": "The Musical Hop",
@@ -432,7 +466,7 @@ def edit_venue(venue_id):
     "seeking_talent": True,
     "seeking_description": "We are on the lookout for a local artist to play every two weeks. Please call us.",
     "image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60"
-  }
+  }'''
   # TODO: populate form with values from venue with ID <venue_id>
   return render_template('forms/edit_venue.html', form=form, venue=venue)
 
@@ -440,6 +474,50 @@ def edit_venue(venue_id):
 def edit_venue_submission(venue_id):
   # TODO: take values from the form submitted, and update existing
   # venue record with ID <venue_id> using the new attributes
+  form = VenueForm(request.form)
+  venue = Venue.query.get(venue_id)
+
+  if venue:
+    # update venue object with form data
+    venue.name = form.name.data
+    venue.city = form.city.data
+    venue.state = form.state.data
+    venue.address = form.address.data
+    venue.phone = form.phone.data
+    venue.image_link = form.image_link.data
+    venue.facebook_link = form.facebook_link.data
+    venue.seeking_talent = form.seeking_talent.data
+    venue.seeking_description = form.seeking_description.data
+    venue.website = form.website.data
+    
+    
+    db.session.add(venue)
+    db.session.flush()
+
+    # delete all genres for the venue in venue_genre table and recreate them
+    # not ideal, but easiest solution
+    delete_venue_genre = venue_genre.delete().where(venue_genre.c.venue_id == venue_id)
+    db.session.execute(delete_venue_genre)
+
+    for name in form.genres.data:
+      #genre = db.session.query(Genre).filter_by(name=genre_name)
+      genre = Genre.query.filter_by(name = name).first()
+      print(genre)
+      if genre is None:
+        # insert into Genre table
+        genre = Genre(name = name)
+        db.session.add(genre)
+        db.session.flush()
+      
+      add_venue_genre = venue_genre.insert().values(
+        venue_id = venue.id,
+        genre_id = genre.id
+      )
+
+      db.session.execute(add_venue_genre)
+
+    db.session.commit()
+    
   return redirect(url_for('show_venue', venue_id=venue_id))
 
 #  Create Artist
@@ -520,42 +598,24 @@ def shows():
   # displays list of shows at /shows
   # TODO: replace with real venues data.
   #       num_shows should be aggregated based on number of upcoming shows per venue.
-  data=[{
-    "venue_id": 1,
-    "venue_name": "The Musical Hop",
-    "artist_id": 4,
-    "artist_name": "Guns N Petals",
-    "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
-    "start_time": "2019-05-21T21:30:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 5,
-    "artist_name": "Matt Quevedo",
-    "artist_image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
-    "start_time": "2019-06-15T23:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-01T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-08T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-15T20:00:00.000Z"
-  }]
+  shows = Show.query.all()
+  data = []
+  
+  for show in shows:
+    artist = Artist.query.get(show.artist_id)
+    venue = Venue.query.get(show.venue_id)
+    data.append({
+      "venue_id": venue.id,
+      "venue_name": venue.name,
+      "artist_id": artist.id,
+      "artist_name": artist.name,
+      "artist_image_link": artist.image_link,
+      "start_time": show.start_time.strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+  if len(data) == 0:
+    flash("There are no shows to list.")
+
   return render_template('pages/shows.html', shows=data)
 
 @app.route('/shows/create')
@@ -568,7 +628,6 @@ def create_shows():
 def create_show_submission():
   # called to create new shows in the db, upon submitting new show listing form
   # TODO: insert form data as a new Show record in the db, instead
-<<<<<<< HEAD
   form = ShowForm(request.form)
 
   # Query DB if the provided artist and venue exist
@@ -590,11 +649,6 @@ def create_show_submission():
     flash('An error occurred. Show could not be listed.')
   # on successful db insert, flash success
   
-=======
-
-  # on successful db insert, flash success
-  flash('Show was successfully listed!')
->>>>>>> ea3432508cf19ec20e37d404ecaec555aedfc69a
   # TODO: on unsuccessful db insert, flash an error instead.
   # e.g., flash('An error occurred. Show could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
