@@ -13,6 +13,7 @@ import logging
 from logging import Formatter, FileHandler
 from flask_wtf import Form
 from forms import *
+from sqlalchemy import func
 #----------------------------------------------------------------------------#
 # App Config.
 #----------------------------------------------------------------------------#
@@ -73,18 +74,14 @@ def venues():
     for venue in venues:
       if venue.city.lower() == city.lower():
         venue_by_city.update({'state': venue.state})
-        shows = Show.query.filter(Show.venue_id == venue.id).all()
-        upcoming_shows = [
-          show 
-          for show in shows if show.start_time > datetime.now()
-        ]
+        upcoming_shows_at_venue = Show.query.filter(Show.venue_id == venue.id).filter(Show.start_time > datetime.now()).all()
+        
         venue_by_city['venues'].append({
           "id": venue.id,
           "name": venue.name,
-          "num_upcoming_shows": len(upcoming_shows) # TODO: Get the list of upcoming shows for this venue to update this field
+          "num_upcoming_shows": len(upcoming_shows_at_venue)
         })
-    data.append(venue_by_city)
-          
+    data.append(venue_by_city)          
 
   return render_template('pages/venues.html', areas=data)
 
@@ -93,15 +90,25 @@ def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  response={
-    "count": 1,
-    "data": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
+  search_str = request.form.get('search_term', '')
+  search_format = "%{}%".format(search_str.lower())
+  search_results = Venue.query.filter(func.lower(Venue.name).like(search_format)).all()
+
+  data = []
+  for venue in search_results:
+    upcoming_shows_at_venue = Show.query.filter(Show.venue_id == venue.id).filter(Show.start_time > datetime.now()).all()
+    data.append({
+      "id": venue.id,
+      "name": venue.name,
+      "num_upcoming_shows": len(upcoming_shows_at_venue)
+    })
+
+  response = {
+    "count": len(search_results),
+    "data": data
   }
-  return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
+  
+  return render_template('pages/search_venues.html', results=response, search_term=search_str)
 
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
@@ -152,8 +159,6 @@ def show_venue(venue_id):
       "upcoming_shows_count": len(upcoming_shows)
     }
        
-
-  # data = list(filter(lambda d: d['id'] == venue_id, [data1, data2, data3]))[0]
   return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
@@ -260,15 +265,26 @@ def search_artists():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
   # search for "band" should return "The Wild Sax Band".
-  response={
-    "count": 1,
-    "data": [{
-      "id": 4,
-      "name": "Guns N Petals",
-      "num_upcoming_shows": 0,
-    }]
+  
+  search_str = request.form.get('search_term', '')
+  search_format = "%{}%".format(search_str.lower())
+  search_results = Artist.query.filter(func.lower(Artist.name).like(search_format)).all()
+
+  data = []
+  for artist in search_results:
+    upcoming_shows_for_artist = Show.query.filter(Show.artist_id == artist.id).filter(Show.start_time > datetime.now()).all()
+    data.append({
+      "id": artist.id,
+      "name": artist.name,
+      "num_upcoming_shows": len(upcoming_shows_for_artist)
+    })
+
+  response = {
+    "count": len(search_results),
+    "data": data
   }
-  return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
+  
+  return render_template('pages/search_artists.html', results=response, search_term=search_str)
 
 @app.route('/artists/<int:artist_id>')
 def show_artist(artist_id):
@@ -307,7 +323,9 @@ def show_artist(artist_id):
       "state": artist.state,
       "phone": artist.phone,
       "website": artist.website,
+      "facebook_link": artist.facebook_link,
       "seeking_venue": True if artist.seeking_venue else False,
+      "seeking_description": artist.seeking_description,
       "image_link": artist.image_link,
       "past_shows": past_shows,
       "upcoming_shows": upcoming_shows,
@@ -322,19 +340,20 @@ def show_artist(artist_id):
 @app.route('/artists/<int:artist_id>/edit', methods=['GET'])
 def edit_artist(artist_id):
   form = ArtistForm()
-  artist={
-    "id": 4,
-    "name": "Guns N Petals",
-    "genres": ["Rock n Roll"],
-    "city": "San Francisco",
-    "state": "CA",
-    "phone": "326-123-5000",
-    "website": "https://www.gunsnpetalsband.com",
-    "facebook_link": "https://www.facebook.com/GunsNPetals",
-    "seeking_venue": True,
-    "seeking_description": "Looking for shows to perform at in the San Francisco Bay Area!",
-    "image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80"
-  }
+  artist = Artist.query.get(artist_id)
+
+  if artist:
+    form.name.data = artist.name
+    form.city.data = artist.city
+    form.state.data = artist.state
+    form.phone.data = artist.phone
+    form.image_link.data = artist.image_link
+    form.genres.data = [genre.name for genre in artist.genres]
+    form.facebook_link.data = artist.facebook_link
+    form.website.data = artist.website
+    form.seeking_venue.data = artist.seeking_venue
+    form.seeking_description.data = artist.seeking_description
+
   # TODO: populate form with fields from artist with ID <artist_id>
   return render_template('forms/edit_artist.html', form=form, artist=artist)
 
@@ -342,7 +361,45 @@ def edit_artist(artist_id):
 def edit_artist_submission(artist_id):
   # TODO: take values from the form submitted, and update existing
   # artist record with ID <artist_id> using the new attributes
+  form = ArtistForm(request.form)
+  artist = Artist.query.get(artist_id)
 
+  if artist:
+    artist.name = form.name.data
+    artist.city = form.city.data
+    artist.phone = form.phone.data
+    artist.state = form.state.data
+    artist.image_link = form.image_link.data
+    artist.facebook_link = form.facebook_link.data
+    artist.website = form.website.data
+    artist.seeking_venue = True if form.seeking_venue else False
+    artist.seeking_description = form.seeking_description.data
+
+    db.session.add(artist)
+    db.session.flush()
+
+    # delete all genres for the artist in artist_genre table and recreate them
+    # not ideal, but easiest solution
+    delete_artist_genre = artist_genre.delete().where(artist_genre.c.artist_id == artist_id)
+    db.session.execute(delete_artist_genre)
+
+    for name in form.genres.data:
+      genre = Genre.query.filter_by(name = name).first()
+      print(genre)
+      if genre is None:
+        # insert into Genre table
+        genre = Genre(name = name)
+        db.session.add(genre)
+        db.session.flush()
+      
+      add_artist_genre = artist_genre.insert().values(
+        artist_id = artist.id,
+        genre_id = genre.id
+      )
+
+      db.session.execute(add_artist_genre)
+
+    db.session.commit()
   return redirect(url_for('show_artist', artist_id=artist_id))
 
 @app.route('/venues/<int:venue_id>/edit', methods=['GET'])
